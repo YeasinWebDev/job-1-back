@@ -60,6 +60,7 @@ async function run() {
   try {
     const db = client.db("jobtask");
     const userCollection = db.collection("users");
+    const paymentCollection = db.collection("payment");
 
     app.post("/jwt", async (req, res) => {
       const user = req.body;
@@ -188,6 +189,27 @@ async function run() {
           res.status(500).send("Internal Server Error");
       }
   });
+
+
+  // request for payment
+  // cash-in
+  app.post('/cashIn',verifyToken, async (req, res)=>{
+    const data = req.body;
+    const result = await paymentCollection.insertOne(data)
+    res.send(result)
+  }) 
+  // cash-out
+  app.post('/cashOut',verifyToken, async (req, res)=>{
+    const data = req.body;
+    const result = await paymentCollection.insertOne(data)
+    res.send(result)
+  }) 
+  // send money
+  app.post('/sendMoney',verifyToken, async (req, res)=>{
+    const data2 = req.body;
+    const result = await paymentCollection.insertOne(data2)
+    res.send(result)
+  })
 
     await client.connect();
     // Send a ping to confirm a successful connection
