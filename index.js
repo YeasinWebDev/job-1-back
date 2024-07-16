@@ -211,6 +211,18 @@ async function run() {
     res.send(result)
   })
 
+  // user History 
+  app.post('/usersHistory', verifyToken, async (req, res)=>{
+    const { email } = req.body;
+    try {
+        const payments = await paymentCollection.find({email}).toArray();
+        res.send(payments);
+    } catch (error) {
+        console.error("Error fetching user history:", error);
+        res.status(500).send("Internal Server Error");
+    }
+  })
+
     await client.connect();
     // Send a ping to confirm a successful connection
     await client.db("admin").command({ ping: 1 });
