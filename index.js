@@ -1,4 +1,4 @@
-const { MongoClient, ServerApiVersion } = require("mongodb");
+const { MongoClient, ServerApiVersion, ObjectId } = require("mongodb");
 require("dotenv").config();
 const express = require("express");
 const cors = require("cors");
@@ -137,6 +137,40 @@ async function run() {
 
       } catch (error) {
         console.error("Error finding user or comparing password:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    // get all user in admin 
+    app.get("/admin/users", verifyToken, async (req, res) => {
+      try {
+        const users = await userCollection.find({ role: { $ne: 'admin' } }).toArray();
+        res.send(users);
+      } catch (error) {
+        console.error("Error fetching users:", error);
+        res.status(500).send("Internal Server Error");
+      }
+    });
+
+    // approve a user by id
+    app.put("/admin/users/:id", verifyToken, async (req, res) => {
+      const { id } = req.params;
+      const { approved } = req.body;
+      try {
+        const updateOperation = approved 
+      ? { $set: { approved }, $inc: { balance: 40 } }  
+      : { $set: { approved } };  
+
+    const result = await userCollection.updateOne(
+      { _id: new ObjectId(id) },
+      updateOperation
+    );
+        if (result.modifiedCount === 0) {
+          return res.send({ message: "User not found" });
+        }
+        res.send(result);
+      } catch (error) {
+        console.error("Error updating user:", error);
         res.status(500).send("Internal Server Error");
       }
     });
