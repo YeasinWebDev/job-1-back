@@ -78,7 +78,6 @@ async function run() {
 
     // Updated user registration route
     app.post("/user", async (req, res) => {
-        console.log(req.body)
       const user = req.body;
 
       // Hash the PIN
@@ -101,8 +100,7 @@ async function run() {
     // Updated route to find user by PIN and compare provided password
     app.get("/user",verifyToken, async (req, res) => {
       const {email} = req.query;
-      console.log(email)
-      const result = await userCollection.findOne(email);
+      const result = await userCollection.findOne({email});
       if (!result) {
         return res.status(404).send({ message: "User not found" });
       }
@@ -135,6 +133,7 @@ async function run() {
         if (!isMatch) {
           return res.status(401).send({ message: "Invalid pin" });
         }
+        return res.send(user.email)
 
       } catch (error) {
         console.error("Error finding user or comparing password:", error);
