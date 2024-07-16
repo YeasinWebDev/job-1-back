@@ -155,25 +155,39 @@ async function run() {
     // approve a user by id
     app.put("/admin/users/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
-      const { approved } = req.body;
+      const  approved  = req.body;
       try {
-        const updateOperation = approved 
-      ? { $set: { approved }, $inc: { balance: 40 } }  
-      : { $set: { approved } };  
-
-    const result = await userCollection.updateOne(
-      { _id: new ObjectId(id) },
-      updateOperation
-    );
-        if (result.modifiedCount === 0) {
-          return res.send({ message: "User not found" });
-        }
-        res.send(result);
+          // Retrieve the current user status
+          const user = await userCollection.findOne({ _id: new ObjectId(id) });
+          if (!user) {
+              return res.status(404).send({ message: "User not found" });
+          }
+          // Prepare the update operation
+          let updateOperation = {};
+  
+          if (approved) {
+              updateOperation.$set = { approved: approved.val };
+              // Increment balance only if balance is 0
+              if (user.balance === 0) {
+                  updateOperation.$inc = { balance: approved.role === 'user' ? 40 : 10000 };
+              }
+          }
+  
+          const result = await userCollection.updateOne(
+              { _id: new ObjectId(id) },
+              updateOperation
+          );
+  
+          if (result.modifiedCount === 0) {
+              return res.status(404).send({ message: "User not found" });
+          }
+  
+          res.send(result);
       } catch (error) {
-        console.error("Error updating user:", error);
-        res.status(500).send("Internal Server Error");
+          console.error("Error updating user:", error);
+          res.status(500).send("Internal Server Error");
       }
-    });
+  });
 
     await client.connect();
     // Send a ping to confirm a successful connection
