@@ -85,8 +85,8 @@ async function run() {
       const hashedPin = await bcrypt.hash(user.pin, 10);
 
       const data = {
-       ...user,
-        pin: hashedPin
+        ...user,
+        pin: hashedPin,
       };
 
       try {
@@ -99,9 +99,9 @@ async function run() {
     });
 
     // Updated route to find user by PIN and compare provided password
-    app.get("/user",verifyToken, async (req, res) => {
-      const {email} = req.query;
-      const result = await userCollection.findOne({email});
+    app.get("/user", verifyToken, async (req, res) => {
+      const { email } = req.query;
+      const result = await userCollection.findOne({ email });
       if (!result) {
         return res.status(404).send({ message: "User not found" });
       }
@@ -113,11 +113,9 @@ async function run() {
       const { emailOrMobile, pin } = req.body;
 
       if (!emailOrMobile || !pin) {
-        return res
-          .status(400)
-          .send({
-            message: "Email or mobile number and password must be provided",
-          });
+        return res.status(400).send({
+          message: "Email or mobile number and password must be provided",
+        });
       }
 
       try {
@@ -134,18 +132,19 @@ async function run() {
         if (!isMatch) {
           return res.status(401).send({ message: "Invalid pin" });
         }
-        return res.send(user.email)
-
+        return res.send(user.email);
       } catch (error) {
         console.error("Error finding user or comparing password:", error);
         res.status(500).send("Internal Server Error");
       }
     });
 
-    // get all user in admin 
+    // get all user in admin
     app.get("/admin/users", verifyToken, async (req, res) => {
       try {
-        const users = await userCollection.find({ role: { $ne: 'admin' } }).toArray();
+        const users = await userCollection
+          .find({ role: { $ne: "admin" } })
+          .toArray();
         res.send(users);
       } catch (error) {
         console.error("Error fetching users:", error);
@@ -156,72 +155,101 @@ async function run() {
     // approve a user by id
     app.put("/admin/users/:id", verifyToken, async (req, res) => {
       const { id } = req.params;
-      const  approved  = req.body;
+      const approved = req.body;
       try {
-          // Retrieve the current user status
-          const user = await userCollection.findOne({ _id: new ObjectId(id) });
-          if (!user) {
-              return res.status(404).send({ message: "User not found" });
+        // Retrieve the current user status
+        const user = await userCollection.findOne({ _id: new ObjectId(id) });
+        if (!user) {
+          return res.status(404).send({ message: "User not found" });
+        }
+        // Prepare the update operation
+        let updateOperation = {};
+
+        if (approved) {
+          updateOperation.$set = { approved: approved.val };
+          // Increment balance only if balance is 0
+          if (user.balance === 0) {
+            updateOperation.$inc = {
+              balance: approved.role === "user" ? 40 : 10000,
+            };
           }
-          // Prepare the update operation
-          let updateOperation = {};
-  
-          if (approved) {
-              updateOperation.$set = { approved: approved.val };
-              // Increment balance only if balance is 0
-              if (user.balance === 0) {
-                  updateOperation.$inc = { balance: approved.role === 'user' ? 40 : 10000 };
-              }
-          }
-  
-          const result = await userCollection.updateOne(
-              { _id: new ObjectId(id) },
-              updateOperation
-          );
-  
-          if (result.modifiedCount === 0) {
-              return res.status(404).send({ message: "User not found" });
-          }
-  
-          res.send(result);
+        }
+
+        const result = await userCollection.updateOne(
+          { _id: new ObjectId(id) },
+          updateOperation
+        );
+
+        if (result.modifiedCount === 0) {
+          return res.status(404).send({ message: "User not found" });
+        }
+
+        res.send(result);
       } catch (error) {
-          console.error("Error updating user:", error);
-          res.status(500).send("Internal Server Error");
+        console.error("Error updating user:", error);
+        res.status(500).send("Internal Server Error");
       }
-  });
+    });
 
+    // request for payment
+    // cash-in
+    app.post("/cashIn", verifyToken, async (req, res) => {
+      const data = req.body;
+      const result = await paymentCollection.insertOne(data);
+      res.send(result);
+    });
+    // cash-out
+    app.post("/cashOut", verifyToken, async (req, res) => {
+      const data = req.body;
+      const result = await paymentCollection.insertOne(data);
+      res.send(result);
+    });
+    // send money
+    app.post("/sendMoney", verifyToken, async (req, res) => {
+      const data2 = req.body;
+      const { email, toemail, amount } = req.body;
 
-  // request for payment
-  // cash-in
-  app.post('/cashIn',verifyToken, async (req, res)=>{
-    const data = req.body;
-    const result = await paymentCollection.insertOne(data)
-    res.send(result)
-  }) 
-  // cash-out
-  app.post('/cashOut',verifyToken, async (req, res)=>{
-    const data = req.body;
-    const result = await paymentCollection.insertOne(data)
-    res.send(result)
-  }) 
-  // send money
-  app.post('/sendMoney',verifyToken, async (req, res)=>{
-    const data2 = req.body;
-    const result = await paymentCollection.insertOne(data2)
-    res.send(result)
-  })
+      const fromEmail = await userCollection.findOne({ email });
+      const toEmail = await userCollection.findOne({ email: toemail });
+      console.log(fromEmail, toEmail);
+      if (!fromEmail || !toEmail) {
+        return res.status(404).send("One or both users not found");
+      }
 
-  // user History 
-  app.post('/usersHistory', verifyToken, async (req, res)=>{
-    const { email } = req.body;
-    try {
-        const payments = await paymentCollection.find({email}).toArray();
+      // Check if fromEmail has enough balance
+      if (fromEmail.balance < amount) {
+        return res.status(400).send("Insufficient balance");
+      }
+
+      // Update balances
+      const updatedFromEmailBalance = fromEmail.balance - amount;
+      const updatedToEmailBalance = toEmail.balance + amount;
+
+      // Update the database with new balances
+      await userCollection.updateOne(
+        { email },
+        { $set: { balance: updatedFromEmailBalance } }
+      );
+
+      await userCollection.updateOne(
+        { email: toemail },
+        { $set: { balance: updatedToEmailBalance } }
+      );
+      const result = await paymentCollection.insertOne(data2)
+      res.send(result)
+    });
+
+    // user History
+    app.post("/usersHistory", verifyToken, async (req, res) => {
+      const { email } = req.body;
+      try {
+        const payments = await paymentCollection.find({ email }).toArray();
         res.send(payments);
-    } catch (error) {
+      } catch (error) {
         console.error("Error fetching user history:", error);
         res.status(500).send("Internal Server Error");
-    }
-  })
+      }
+    });
 
     await client.connect();
     // Send a ping to confirm a successful connection
