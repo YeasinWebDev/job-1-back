@@ -256,6 +256,10 @@ async function run() {
       const result = await paymentCollection.find({approved : false}).toArray()
       res.send(result)
     })
+    app.get('/agencyHis', async (req, res) => {
+      const result = await paymentCollection.find({approved : true}).toArray()
+      res.send(result)
+    })
     app.post('/cashIn/approve',verifyToken, async (req, res) => {
       const {email, amount, agencyEmail,id} = req.body
       const user = await userCollection.findOne({ email })
