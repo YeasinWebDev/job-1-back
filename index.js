@@ -211,7 +211,7 @@ async function run() {
 
       const fromEmail = await userCollection.findOne({ email });
       const toEmail = await userCollection.findOne({ email: toemail });
-      console.log(fromEmail, toEmail);
+
       if (!fromEmail || !toEmail) {
         return res.status(404).send("One or both users not found");
       }
@@ -250,6 +250,39 @@ async function run() {
         res.status(500).send("Internal Server Error");
       }
     });
+
+    // agency req
+    app.get('/agency', async (req, res) => {
+      const result = await paymentCollection.find({approved : false}).toArray()
+      res.send(result)
+    })
+    app.post('/agency/approve',verifyToken, async (req, res) => {
+      const {email, amount, agencyEmail,id} = req.body
+      const user = await userCollection.findOne({ email })
+      const agency = await userCollection.findOne({ email:agencyEmail })
+
+      // Update balances
+      const updatedAgencyBalance = agency.balance - amount;
+      const updatedUserBalance = user.balance + amount;
+
+      // Update the database with new balances
+      await userCollection.updateOne(
+        { email },
+        { $set: { balance: updatedUserBalance } }
+      );
+
+      await userCollection.updateOne(
+        { email: agencyEmail },
+        { $set: { balance: updatedAgencyBalance } }
+      );
+
+     const datastatus= await paymentCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { approved: true } }
+      );
+      
+      res.send(datastatus)
+    })
 
     await client.connect();
     // Send a ping to confirm a successful connection
