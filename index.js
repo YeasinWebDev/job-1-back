@@ -252,11 +252,11 @@ async function run() {
     });
 
     // agency req
-    app.get('/agency', async (req, res) => {
+    app.get('/agency',verifyToken, async (req, res) => {
       const result = await paymentCollection.find({approved : false}).toArray()
       res.send(result)
     })
-    app.get('/agencyHis', async (req, res) => {
+    app.get('/agencyHis',verifyToken, async (req, res) => {
       const result = await paymentCollection.find({approved : true}).toArray()
       res.send(result)
     })
