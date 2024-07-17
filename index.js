@@ -12,8 +12,6 @@ const app = express();
 const corsOptions = {
   origin: ["http://localhost:5173","https://job-1-one.vercel.app/"],
   credentials: true,
-  methods: ['GET', 'POST', 'PUT', 'DELETE'],
-  allowedHeaders: ['Content-Type', 'Authorization'],
 };
 
 app.use(cors(corsOptions));
@@ -258,7 +256,7 @@ async function run() {
       const result = await paymentCollection.find({approved : false}).toArray()
       res.send(result)
     })
-    app.post('/agency/approve',verifyToken, async (req, res) => {
+    app.post('/cashIn/approve',verifyToken, async (req, res) => {
       const {email, amount, agencyEmail,id} = req.body
       const user = await userCollection.findOne({ email })
       const agency = await userCollection.findOne({ email:agencyEmail })
@@ -266,6 +264,33 @@ async function run() {
       // Update balances
       const updatedAgencyBalance = agency.balance - amount;
       const updatedUserBalance = user.balance + amount;
+
+      // Update the database with new balances
+      await userCollection.updateOne(
+        { email },
+        { $set: { balance: updatedUserBalance } }
+      );
+
+      await userCollection.updateOne(
+        { email: agencyEmail },
+        { $set: { balance: updatedAgencyBalance } }
+      );
+
+     const datastatus= await paymentCollection.updateOne(
+        { _id: new ObjectId(id) },
+        { $set: { approved: true } }
+      );
+      
+      res.send(datastatus)
+    })
+    app.post('/cashOut/approve', async (req, res) => {
+      const {email, amount, agencyEmail,id} = req.body
+      const user = await userCollection.findOne({ email })
+      const agency = await userCollection.findOne({ email:agencyEmail })
+
+      // Update balances
+      const updatedAgencyBalance = agency.balance + amount;
+      const updatedUserBalance = user.balance - amount;
 
       // Update the database with new balances
       await userCollection.updateOne(
