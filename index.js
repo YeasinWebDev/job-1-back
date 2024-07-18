@@ -287,7 +287,7 @@ async function run() {
       
       res.send(datastatus)
     })
-    app.post('/cashOut/approve', async (req, res) => {
+    app.post('/cashOut/approve',verifyToken, async (req, res) => {
       const {email, amount, agencyEmail,id} = req.body
       const user = await userCollection.findOne({ email })
       const agency = await userCollection.findOne({ email:agencyEmail })
